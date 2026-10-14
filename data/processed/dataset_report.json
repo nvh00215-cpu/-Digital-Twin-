@@ -1,0 +1,28 @@
+{
+  "seed": 2026,
+  "rows": 222384,
+  "patients": 339,
+  "positive_rate_by_split": {
+    "train": 0.1268,
+    "validation": 0.1309,
+    "test": 0.1195
+  },
+  "rows_by_split": {
+    "train": 155472,
+    "validation": 32800,
+    "test": 34112
+  },
+  "positive_rate_by_cohort": {
+    "diabetes": 0.3707,
+    "prediabetes": 0.0557
+  },
+  "label": "1 if any glucose sample in (t, t+2h] is >= 180 mg/dL",
+  "feature_window": "6 hours ending at decision_time, inclusive",
+  "decision_every_minutes": 30,
+  "curve_targets_minutes": [
+    30,
+    60,
+    90,
+    120
+  ]
+}

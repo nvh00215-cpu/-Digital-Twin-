@@ -1,0 +1,377 @@
+{
+  "meta": {
+    "name": "Dark Bento Dashboard System",
+    "version": "1.0.0",
+    "purpose": "Context for an AI coding assistant to replicate a dark, glassy, bento-grid clinical dashboard style consistently. Contains style rules only, no content from the reference screenshots.",
+    "style_summary": "Dark charcoal canvas, soft glass-like rounded panels, one high-energy lime accent, pill-shaped controls, circular arrow action buttons, smooth spline charts with horizontal gridlines only, generous spacing, large corner radii.",
+    "mood": ["modern", "calm", "high-contrast", "friendly-clinical", "dense-but-airy"]
+  },
+
+  "stack": {
+    "framework": "Next.js (App Router) + React + TypeScript",
+    "styling": "Tailwind CSS with CSS variables mapped from tokens below",
+    "components": "shadcn/ui on Radix primitives",
+    "icons": "lucide-react, stroke 1.75, rounded caps and joins",
+    "charts": "Recharts (monotone curves, no vertical grid)",
+    "data": "TanStack Query for fetching and caching",
+    "validation": "zod schemas for every API response",
+    "font_loading": "next/font"
+  },
+
+  "tokens": {
+    "color": {
+      "background": {
+        "app": "#0A0A0B",
+        "frame": "#101011",
+        "surface": "#161617",
+        "surface_raised": "#1E1E20",
+        "surface_glass_from": "#262628",
+        "surface_glass_to": "#121213",
+        "overlay": "rgba(0,0,0,0.6)"
+      },
+      "border": {
+        "subtle": "rgba(255,255,255,0.06)",
+        "default": "rgba(255,255,255,0.10)",
+        "strong": "rgba(255,255,255,0.18)"
+      },
+      "text": {
+        "primary": "#F5F5F2",
+        "secondary": "#A6A6AB",
+        "muted": "#6E6E74",
+        "on_accent": "#0A0A0B"
+      },
+      "accent": {
+        "base": "#E7F43C",
+        "hover": "#F0FA6A",
+        "pressed": "#CFDB2E",
+        "soft_bg": "rgba(231,244,60,0.12)",
+        "ring": "rgba(231,244,60,0.45)"
+      },
+      "chart": {
+        "series_1": "#F062C0",
+        "series_2": "#5B6CFF",
+        "series_3": "#E7F43C",
+        "grid": "rgba(255,255,255,0.14)",
+        "axis_label": "#8A8A90"
+      },
+      "status": {
+        "success": "#34D27B",
+        "warning": "#FFB020",
+        "danger": "#FF4D4F",
+        "info": "#5B6CFF"
+      },
+      "risk_scale": {
+        "low": "#34D27B",
+        "moderate": "#FFB020",
+        "high": "#FF4D4F",
+        "note": "Use text label plus icon with every risk color. Never rely on color alone."
+      }
+    },
+    "typography": {
+      "font_family": "Urbanist, 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif",
+      "mono_family": "'JetBrains Mono', ui-monospace, monospace",
+      "weights": { "regular": 400, "medium": 500, "semibold": 600, "bold": 700 },
+      "scale_px": {
+        "caption": 11,
+        "label": 12,
+        "body_sm": 13,
+        "body": 14,
+        "body_lg": 16,
+        "title_sm": 18,
+        "title": 22,
+        "headline": 28,
+        "display": 36
+      },
+      "line_height": { "tight": 1.15, "normal": 1.4, "relaxed": 1.6 },
+      "rules": [
+        "Section titles: 16-18px, weight 500-600, primary text.",
+        "Table and list headers: 12px, secondary text, no uppercase.",
+        "Big numbers (stats): 28-36px, weight 600, tabular-nums.",
+        "Prefer sentence case everywhere."
+      ]
+    },
+    "radius_px": {
+      "xs": 8,
+      "sm": 12,
+      "md": 16,
+      "lg": 24,
+      "xl": 28,
+      "pill": 999,
+      "circle": "50%"
+    },
+    "spacing_px": [4, 8, 12, 16, 20, 24, 32, 40],
+    "elevation": {
+      "panel": "0 1px 0 rgba(255,255,255,0.04) inset, 0 12px 32px rgba(0,0,0,0.35)",
+      "floating": "0 20px 48px rgba(0,0,0,0.5)",
+      "accent_glow": "0 0 0 4px rgba(231,244,60,0.15)"
+    },
+    "effects": {
+      "panel_background": "linear-gradient(145deg, var(--surface-glass-from), var(--surface-glass-to))",
+      "optional_ambient_glow": "radial-gradient(60% 50% at 30% 0%, rgba(231,244,60,0.06), transparent 70%)",
+      "backdrop_blur_px": 12
+    },
+    "motion": {
+      "duration_ms": { "fast": 120, "base": 180, "slow": 280 },
+      "easing": "cubic-bezier(0.2, 0.8, 0.2, 1)",
+      "rules": [
+        "Hover: background lightens one step, arrow buttons nudge 2px right.",
+        "Charts animate on first mount only.",
+        "Respect prefers-reduced-motion by disabling transitions."
+      ]
+    }
+  },
+
+  "layout": {
+    "shell": {
+      "outer_padding_px": 16,
+      "gap_px": 16,
+      "structure": "Rounded app frame containing a fixed left sidebar and a scrollable bento main area.",
+      "sidebar": {
+        "width_px": 232,
+        "collapsed_width_px": 72,
+        "radius_px": 28,
+        "style": "Floating panel inset from the viewport edges, vertical flow: brand at top, primary navigation, spacer, footer actions.",
+        "collapse_below_px": 1024
+      },
+      "topbar": {
+        "height_px": 72,
+        "contents_left": "Context tabs or page title",
+        "contents_right": "Search, user menu",
+        "style": "Sits inside the main panel, not full-bleed. Transparent over the frame."
+      },
+      "main_grid": {
+        "columns": 12,
+        "gap_px": 16,
+        "pattern": "Bento: one wide primary panel, one chart panel beneath it, and an optional right rail of 340px for the focused item.",
+        "breakpoints": {
+          "mobile": "single column, sidebar becomes bottom sheet or drawer",
+          "tablet": "8 + 4 split, right rail moves below",
+          "desktop": "12-col with 340px right rail"
+        }
+      }
+    },
+    "density": "Comfortable. Row height 64px for list rows, 48px for compact rows.",
+    "max_content_width_px": 1600
+  },
+
+  "components": {
+    "sidebar_nav_item": {
+      "height_px": 44,
+      "layout": "icon (20px) + label, 12px gap, 16px left padding",
+      "states": {
+        "default": "Muted icon and label.",
+        "hover": "Primary text, subtle surface background.",
+        "active": "Accent-colored icon and label, small accent dot on the left edge, no filled background.",
+        "focus_visible": "2px accent ring"
+      }
+    },
+    "pill_tabs": {
+      "shape": "Pill group inside a raised surface. Active tab sits on a lighter glass surface with primary text, inactive tabs use secondary text.",
+      "height_px": 44
+    },
+    "data_row": {
+      "shape": "Full-width rounded pill, radius 24, height 64.",
+      "default": "surface_raised background, subtle border.",
+      "selected": "Solid accent background, on_accent text, trailing circular button inverts to dark with accent arrow.",
+      "columns": "Leading avatar or checkbox, primary text with secondary line beneath, then 2-4 aligned value columns, status chip, trailing action.",
+      "trailing_action": "Circular arrow button 44px."
+    },
+    "circle_action_button": {
+      "size_px": 44,
+      "default": "Accent fill, dark arrow icon.",
+      "on_selected_row": "Dark fill, accent arrow icon.",
+      "hover": "Arrow translates 2px right.",
+      "aria": "Always give an aria-label describing the destination."
+    },
+    "pill_button": {
+      "primary": "Dark fill (#0A0A0B) with white text on accent surfaces, or accent fill with dark text on dark surfaces. Height 40, radius pill, padding 20 horizontally.",
+      "secondary": "Transparent with default border, primary text.",
+      "ghost": "No border, secondary text, hover surface."
+    },
+    "panel_card": {
+      "background": "panel_background gradient",
+      "radius_px": 28,
+      "padding_px": 20,
+      "border": "subtle",
+      "header": "Optional leading 32px icon chip, title 16px, optional right-aligned dropdown or link with arrow."
+    },
+    "accent_callout_card": {
+      "background": "accent base",
+      "text": "on_accent",
+      "radius_px": 24,
+      "padding_px": 20,
+      "contains": "Short label, key fact in bold, supporting line, and one dark pill button."
+    },
+    "chart_card": {
+      "line": "Smooth monotone curve, 2px stroke, no dots until hover.",
+      "grid": "Horizontal lines only, 1px, chart.grid color.",
+      "axes": "No axis lines, labels 11-12px in axis_label color.",
+      "legend": "Small 8px colored dots with label, top-aligned to the title row.",
+      "tooltip": "Raised surface, radius 12, border default, 12px text.",
+      "threshold_line": "Dashed 1px line with a small label for clinical thresholds."
+    },
+    "status_chip": {
+      "shape": "Pill, 24px tall, 12px text, leading 6px dot or icon.",
+      "variants": ["success", "warning", "danger", "info", "neutral"]
+    },
+    "stat_tile": {
+      "layout": "Label (12px secondary) above a large tabular number, optional delta chip.",
+      "radius_px": 20
+    },
+    "list_rail": {
+      "layout": "Vertical timeline line with small dot markers on the left, rounded pill items to the right, each with avatar, two text lines, and a trailing arrow.",
+      "use": "Short ordered list beside a focused item."
+    },
+    "avatar": {
+      "size_px": [32, 40, 56],
+      "shape": "circle",
+      "fallback": "Initials on surface_raised with primary text."
+    },
+    "inputs": {
+      "height_px": 44,
+      "radius_px": 16,
+      "background": "surface_raised",
+      "border": "default",
+      "focus": "accent ring",
+      "search": "Leading search icon, pill radius."
+    },
+    "slider": {
+      "track": "4px, surface_raised",
+      "range": "accent",
+      "thumb": "16px circle, accent, accent_glow on focus",
+      "use": "What-if controls, always show the current value and unit."
+    },
+    "empty_loading_error": {
+      "loading": "Skeleton blocks with the same radius as the content, slow shimmer.",
+      "empty": "One-line message with a secondary text hint inside the panel.",
+      "error": "Danger status chip and a retry ghost button inside the panel, never a full-page crash."
+    }
+  },
+
+  "iconography": {
+    "style": "Outline, 20px in navigation and 16px inline",
+    "container": "Optional 32px rounded-square chip with surface_raised background",
+    "color_rules": "Muted by default, accent when active"
+  },
+
+  "navigation": {
+    "rule": "Include only the items below. Do not add messages, payments, calendars, settings or any other item unless the product owner asks.",
+    "sidebar_primary": [
+      { "id": "patients", "label": "Patients", "route": "/patients", "icon": "users", "default": true, "purpose": "Risk-sorted list of patients" }
+    ],
+    "sidebar_secondary": [
+      { "id": "model", "label": "Model notes", "route": "/model", "icon": "info", "purpose": "Static explanation of the data source, model, metrics and limits" }
+    ],
+    "sidebar_footer": [
+      { "id": "signout", "label": "Sign out", "action": "POST /api/auth/logout", "icon": "log-out" }
+    ],
+    "topbar": ["patient search by id", "signed-in doctor menu with Sign out"],
+    "detail_route": "/patients/[id]",
+    "back_behavior": "Patient detail has a back link to /patients, no extra tabs.",
+    "unauthenticated_routes": ["/login"]
+  },
+
+  "pages": {
+    "login": {
+      "route": "/login",
+      "layout": "Centered single panel_card on the app background, brand mark, username, password, one primary pill button.",
+      "states": "Inline error text for wrong credentials, disabled button while submitting, generic error message that does not reveal which field was wrong."
+    },
+    "patients": {
+      "route": "/patients",
+      "layout": "Wide panel with data_row list sorted by risk descending, optional cohort stat tiles above, risk chip per row, trailing circle_action_button opening the twin.",
+      "filters": "Search by id and a risk filter in the pill tabs: All, High, Moderate, Low."
+    },
+    "patient_twin": {
+      "route": "/patients/[id]",
+      "layout": "Main column: glucose chart with the 2-hour forecast at 30, 60, 90, 120 minutes and the 180 mg/dL threshold line, signal panels for heart rate, steps and sleep. Right rail: record summary and the alert callout, then the what-if sliders for sleep and steps.",
+      "alert_rule": "Show the alert callout when risk is at or above the backend alert threshold, otherwise show a calm neutral status.",
+      "what_if": "Sliders for sleep and steps. Results are displayed only, never saved, and never suggest a drug dose."
+    },
+    "model": {
+      "route": "/model",
+      "layout": "One or two panel_cards with text and stat tiles. Static copy: synthetic data notice, model description, held-out metrics, limits."
+    }
+  },
+
+  "content_rules": {
+    "always_visible_notice": "Synthetic data, not clinically validated. Shown in the footer of every authenticated page, small secondary text.",
+    "never": ["drug dose recommendations", "claims of clinical validation", "real patient photos"],
+    "avatars": "Initials only, since patients are synthetic.",
+    "units": "Always show units next to values, for example mg/dL, bpm, steps, hours.",
+    "numbers": "Use tabular numbers and consistent decimals. Show probabilities as percentages."
+  },
+
+  "accessibility": {
+    "contrast": "Body text at least 4.5:1 on its surface. Dark text on the accent color passes.",
+    "focus": "Visible 2px accent focus ring on every interactive element.",
+    "targets_min_px": 40,
+    "charts": "Provide a text summary or table alternative for each chart.",
+    "color": "Pair every status color with a label or icon."
+  },
+
+  "backend_integration": {
+    "principle": "The existing API at http://127.0.0.1:8000 is read-only context. The frontend adapts to it, never the reverse.",
+    "constraints": [
+      "Do not edit any backend file, schema, route, model or data file.",
+      "Do not add CORS settings or middleware to the backend.",
+      "Do not guess endpoints. Read the backend source and write a typed client from what exists.",
+      "Validate every response with zod and show a panel-level error on mismatch.",
+      "Keep field names exactly as the API returns them. Map them to display names only in a UI layer."
+    ],
+    "pattern": "Browser talks only to the Next.js server. Next.js route handlers under /api proxy to BACKEND_URL after checking the session cookie.",
+    "env": {
+      "BACKEND_URL": "http://127.0.0.1:8000 (server-side only, never prefixed with NEXT_PUBLIC)",
+      "SESSION_SECRET": "long random string",
+      "DOCTOR_USERNAME": "set per deployment",
+      "DOCTOR_PASSWORD_HASH": "bcrypt hash, never a plain password"
+    },
+    "polling": "Refetch the open patient on a 30 minute cadence or on manual refresh, matching the model window. Use stale-while-revalidate."
+  },
+
+  "authentication": {
+    "scope": "Doctor login only. There is no patient login and no demo mode or bypass.",
+    "where": "Implemented entirely in the Next.js layer so the backend stays unchanged.",
+    "flow": [
+      "POST /api/auth/login checks username and bcrypt hash from env, then sets a signed session cookie.",
+      "middleware.ts redirects any unauthenticated request to /login, except /login and /api/auth/login.",
+      "All /api/* proxy handlers reject requests without a valid session with 401.",
+      "POST /api/auth/logout clears the cookie."
+    ],
+    "session": {
+      "format": "Signed JWT (HS256) using jose",
+      "cookie": "httpOnly, SameSite=Lax, Secure in production, path /",
+      "lifetime_hours": 8
+    },
+    "hardening": [
+      "Rate-limit login attempts per IP.",
+      "Constant-time password comparison via bcrypt.",
+      "Generic error text on failed login.",
+      "Append an access log line with doctor, patient id and time on every twin view, stored by the frontend server, not the backend.",
+      "Keep the backend bound to 127.0.0.1 so it is reachable only through the Next.js server."
+    ]
+  },
+
+  "dos_and_donts": {
+    "do": [
+      "Use one accent color only, and use it for the primary action, the active state and the selected row.",
+      "Use large radii and generous padding.",
+      "Keep charts quiet: horizontal grid only, thin smooth lines.",
+      "Use circular arrow buttons as the single pattern for opening an item."
+    ],
+    "dont": [
+      "Do not use more than three chart colors in one chart.",
+      "Do not add decorative buttons, widgets or navigation not listed in navigation.",
+      "Do not use pure white backgrounds or hard drop shadows.",
+      "Do not mix corner radii within one panel."
+    ]
+  },
+
+  "ai_instructions": [
+    "Read this file before writing any UI code.",
+    "Create CSS variables from tokens first, then build components that only use those variables.",
+    "Build shared primitives (PanelCard, DataRow, CircleActionButton, StatusChip, StatTile, GlucoseChart) before pages.",
+    "Match the structure and behavior described here, not any specific content.",
+    "When unsure, choose the simpler option and keep the navigation list unchanged."
+  ]
+}

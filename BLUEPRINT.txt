@@ -1,0 +1,471 @@
+GLYCOTWIN
+Type 2 Diabetes Digital Twin
+Happiest Health Digital Twin Challenge 2026
+Blueprint — Backend and Frontend
+
+Working title: GlycoTwin
+Condition: Type 2 diabetes
+Adverse event: glucose at or above 180 mg/dL
+Lead time: 2 hours
+User: a doctor looking at one virtual patient
+Data rule: synthetic and open-source only
+
+The system is two parts that meet at one JSON API.
+
+  Backend
+    Builds the synthetic patients, trains the models,
+    and returns a prediction for one patient at one time.
+
+  Frontend
+    Shows that prediction to a doctor.
+    It does not train a model and it does not read the raw tables.
+
+
+================================================================
+BACKEND
+================================================================
+
+The backend owns the twin. Everything a reviewer can score as
+"the model works" lives here.
+
+1. JOB
+
+  Generate 300 synthetic adults with Type 2 diabetes.
+  Give each patient a static health record and 14 days of
+  wearable signals, joined on the same patient_id.
+  Train a baseline and a fusion model.
+  At a decision time t, return:
+    - P(glucose reaches 180 mg/dL in the next 2 hours)
+    - expected glucose at +30, +60, +90, and +120 minutes
+    - the few factors that drove the alert
+
+2. FLOW
+
+  Synthea-style health records          Wearable simulator
+           |                                      |
+           v                                      v
+     patients.csv                         signals.csv
+           |                                      |
+           +------------------+-------------------+
+                              |
+                              v
+                       make_dataset.py
+                     windows end at time t
+                     labels use (t, t+2h]
+                              |
+              +---------------+---------------+
+              |                               |
+              v                               v
+        LightGBM baseline                 Fusion twin
+        baseline.joblib                   twin.pt
+              |                               |
+              +---------------+---------------+
+                              |
+                              v
+                        FastAPI  /predict
+                              |
+                              v
+                     JSON for the frontend
+
+3. DATA
+
+All tables share patient_id. A row is valid only when the
+static record and the wearable series belong to the same
+virtual patient.
+
+Cohort
+  300 patients
+  14 days each
+  Glucose, heart rate, and steps every 5 minutes
+  Sleep summarized as hours the previous night
+  A decision row every 30 minutes
+
+Static table, one row per patient — patients.csv
+  patient_id
+  age                         30 to 75
+  sex
+  bmi                         22 to 38
+  diabetes_duration_years     1 to 20
+  hba1c                       6.5 to 12.0
+  on_metformin                common
+  on_sulfonylurea             a minority
+  on_insulin                  a smaller minority
+  systolic_bp
+  diastolic_bp
+  has_hypertension
+  has_ckd
+
+Dynamic table, one row per 5 minutes — signals.csv
+  patient_id
+  timestamp
+  glucose_mg_dl
+  heart_rate_bpm
+  steps
+  sleep_hours_last_night
+
+Label
+  At decision time t, label = 1 if any glucose sample in
+  (t, t + 2 hours] is 180 mg/dL or higher.
+  Label = 0 otherwise.
+  The feature window ends at t. Future glucose is never a feature.
+
+Split
+  By patient_id.
+  Train 70 percent, validation 15 percent, test 15 percent.
+  No patient appears in more than one split.
+
+Wearable generator
+  Document this in data_notes.md. It is part of the submission.
+  Baseline glucose = 28.7 x HbA1c - 46.7
+  Then add meal rises, a drop after steps, a dawn rise after
+  short sleep, a wider swing on insulin, and small sensor noise.
+  Higher HbA1c raises the baseline and the chance of spikes.
+
+4. MODELS
+
+Ship both. The baseline is the reliable demo.
+The twin is the fusion architecture.
+
+Baseline — LightGBM, one row per decision time
+  glucose now
+  slope over the last 30 minutes
+  mean glucose over the last 2 hours
+  standard deviation over the last 6 hours
+  share of the last 6 hours above 140 mg/dL
+  hour of day
+  steps in the last 2 hours
+  sleep hours last night
+  heart-rate mean and standard deviation over the last 2 hours
+  age, BMI, HbA1c, diabetes duration
+  metformin, sulfonylurea, insulin flags
+  systolic blood pressure
+
+Twin
+  Static tower
+    Clinical vector -> small network -> 16-number embedding.
+  Temporal tower
+    Last 6 hours of glucose, heart rate, and steps
+    (72 steps of 5 minutes) -> small 1D conv or LSTM.
+  Fusion
+    Concatenate both vectors.
+    Head 1: P(spike in 2 hours)
+    Head 2: glucose at +30, +60, +90, +120 minutes
+
+Metrics, written to outputs/metrics.json, on held-out patients
+  AUROC
+  AUPRC
+  sensitivity at a fixed high specificity
+  false alarms per patient-day
+  mean absolute error of the 2-hour curve
+  minutes between the first alert and the spike
+
+Report baseline and twin side by side.
+If the twin does not beat the baseline, serve the baseline
+from /predict and keep the twin available as the second model.
+
+Explanation
+  SHAP or LightGBM gain for glucose slope, sleep, steps, HbA1c.
+  Return the top reasons as short strings, not raw feature names.
+
+5. API
+
+Base URL: http://127.0.0.1:8000
+The frontend calls only these routes.
+
+GET /health
+  { "status": "ok", "model": "baseline" }
+
+GET /patients
+  List for the cohort screen.
+  [
+    {
+      "patient_id": "P0142",
+      "age": 54,
+      "hba1c": 8.4,
+      "risk": 0.81
+    }
+  ]
+
+GET /patients/{patient_id}
+  Static card.
+  {
+    "patient_id": "P0142",
+    "age": 54,
+    "sex": "F",
+    "bmi": 29.1,
+    "diabetes_duration_years": 8,
+    "hba1c": 8.4,
+    "on_metformin": true,
+    "on_sulfonylurea": false,
+    "on_insulin": false,
+    "systolic_bp": 138,
+    "diastolic_bp": 86,
+    "has_hypertension": true,
+    "has_ckd": false
+  }
+
+GET /patients/{patient_id}/series?hours=6
+  Points for the charts. One object per 5 minutes.
+  [
+    {
+      "timestamp": "2026-10-14T08:00:00",
+      "glucose_mg_dl": 142,
+      "heart_rate_bpm": 78,
+      "steps": 12
+    }
+  ]
+
+GET /patients/{patient_id}/predict
+  The twin result at the latest decision time.
+  {
+    "patient_id": "P0142",
+    "decision_time": "2026-10-14T08:00:00",
+    "spike_probability": 0.81,
+    "alert": true,
+    "curve": [
+      { "minutes": 30, "glucose_mg_dl": 158 },
+      { "minutes": 60, "glucose_mg_dl": 171 },
+      { "minutes": 90, "glucose_mg_dl": 184 },
+      { "minutes": 120, "glucose_mg_dl": 176 }
+    ],
+    "reasons": [
+      "Glucose is rising",
+      "Short sleep last night",
+      "Low activity this morning",
+      "HbA1c is 8.4%"
+    ],
+    "model": "baseline",
+    "synthetic": true
+  }
+
+Alert rule inside the API
+  alert = true when spike_probability is at or above 0.60.
+
+Keep one scripted patient, DEMO, whose recent glucose is rising,
+so the video always has a clear alert.
+
+6. BACKEND FILES
+
+  backend/
+    requirements.txt
+    data/
+      generate_cohort.py
+      simulate_wearables.py
+      make_dataset.py
+      data_notes.md
+    src/
+      features.py
+      train_baseline.py
+      train_twin.py
+      evaluate.py
+      explain.py
+      api.py
+    models/
+      baseline.joblib
+      twin.pt
+    outputs/
+      metrics.json
+      test_predictions.csv
+
+Run
+  python data/generate_cohort.py
+  python data/simulate_wearables.py
+  python data/make_dataset.py
+  python src/train_baseline.py
+  python src/train_twin.py
+  python src/evaluate.py
+  uvicorn src.api:app --reload
+
+7. BACKEND STACK
+
+  Python 3.11
+  pandas, numpy
+  LightGBM, scikit-learn
+  PyTorch
+  FastAPI, uvicorn
+  joblib
+
+No paid APIs. No real patient data.
+
+
+================================================================
+FRONTEND
+================================================================
+
+The frontend is the doctor view. It reads the API and draws
+the virtual patient. It contains no training code.
+
+1. JOB
+
+  Let a doctor open a patient and see, on one screen:
+    who this person is (the health record)
+    what the wearables show right now
+    whether a spike is likely in the next 2 hours
+    the predicted glucose curve
+    why the alert fired
+
+2. SCREENS
+
+Screen A — Cohort
+  Calls GET /patients.
+  Table columns: patient id, age, HbA1c, 2-hour risk.
+  Sorted by risk, highest first.
+  A row click opens Screen B.
+  A pinned row labeled DEMO opens the scripted rising-glucose patient.
+
+Screen B — Patient twin
+  Three columns.
+
+  Left, from GET /patients/{id}
+    Age, sex, BMI
+    Diabetes duration, HbA1c
+    Metformin, sulfonylurea, insulin
+    Blood pressure, hypertension, CKD
+
+  Center, from GET /patients/{id}/series?hours=6
+    Glucose line
+    Heart-rate line
+    Steps bars
+    Last 6 hours only
+
+  Right, from GET /patients/{id}/predict
+    Risk as a percent
+    Alert band: Watch below 0.60, Alert at or above 0.60
+    Curve for +30, +60, +90, +120 minutes
+    A horizontal line at 180 mg/dL
+    The reason strings, in the order the API returns them
+
+  Footer on every screen
+    "Synthetic patient. Decision support. Not a treatment order."
+
+Screen C — About this result
+  A short static page, no API call.
+  Event: glucose at or above 180 mg/dL.
+  Horizon: 2 hours.
+  Both streams are required: the record sets the baseline,
+  the last 6 hours set the near-term risk.
+  Metrics copied from outputs/metrics.json so the video
+  can show the number next to the chart.
+
+3. WHAT THE FRONTEND NEVER DOES
+
+  It does not open patients.csv or signals.csv.
+  It does not compute the label.
+  It does not load the joblib or the PyTorch file.
+  If the API is down, the page says the twin is unavailable.
+
+4. FRONTEND FILES
+
+  frontend/
+    app.py                 Streamlit entry
+    views/
+      cohort.py
+      patient.py
+      about.py
+    components/
+      risk_gauge.py
+      glucose_chart.py
+      patient_card.py
+    api_client.py          the only file that calls the backend
+
+Run
+  streamlit run app.py
+  Backend must already be on http://127.0.0.1:8000
+
+5. FRONTEND STACK
+
+  Streamlit
+  requests
+  plotly for the glucose, heart-rate, and step charts
+
+One process for the API, one process for the dashboard.
+The architecture diagram shows them as two boxes with the
+JSON routes between them.
+
+
+================================================================
+SHARED
+================================================================
+
+REPOSITORY
+
+  GlycoTwin/
+    README.md
+    LICENSE
+    backend/          as listed above
+    frontend/         as listed above
+    docs/
+      architecture.pdf
+      presentation.pdf
+
+README order
+  1. Title and one-sentence outcome
+  2. Team and college
+  3. Problem and healthcare use case
+  4. Adverse event and the 2-hour horizon
+  5. Held-out metrics
+  6. How to start the backend, then the frontend
+  7. Data: synthetic, generator named, no real patients
+  8. Backend stack and model
+  9. Frontend screens
+  10. Architecture diagram
+  11. Presentation
+  12. Unlisted YouTube link
+  13. License
+
+DONE WHEN
+
+  Public GitHub repo
+  README checklist above
+  Backend trains, evaluates, and serves /predict
+  Frontend shows cohort and one patient twin from that API
+  Architecture diagram (PDF or PPT)
+  Results deck (PDF or PPT)
+  Unlisted YouTube demo, 15 to 20 minutes, linked in the README
+  Submission folder name: TeamName_CollegeName
+  Form fields: team leader name, phone, email, public repo link
+
+Dates
+  Code submission: 20 October 2026
+  Virtual jury, if shortlisted: 30 October 2026
+  Summit for the top 5: 20 November 2026, Bengaluru
+
+BUILD ORDER
+
+  11-12 Oct   Backend schema, generator, 300 patients, data_notes.md
+  13 Oct      Backend baseline, metrics.json
+  14-15 Oct   Backend fusion twin, same test patients
+  16 Oct      FastAPI routes, then the three frontend screens
+  17 Oct      Architecture diagram, results deck, README
+  18 Oct      Video
+  19 Oct      Clone on a clean machine. Start API, then Streamlit.
+              Every README link opens without login.
+  20 Oct      Submit leader name, phone, email, and the public repo
+
+VIDEO (15 TO 20 MINUTES)
+
+  0:00  Condition, event, 2-hour horizon
+  2:00  Why the record and the wearables are both required
+  5:00  Backend data contract and the generator
+  8:00  Backend towers and fusion
+  11:00 Frontend on the DEMO patient, fed by /predict
+  14:00 Held-out metrics, baseline next to twin
+  16:00 What the doctor sees on the alert
+  18:00 Limits
+
+LIMITS, STATED IN THE README AND ON THE FRONTEND FOOTER
+
+  The patients are synthetic.
+  The glucose trace is simulated from HbA1c, meals, activity, and sleep.
+  Metrics are on held-out synthetic patients.
+  They are not a clinical validation.
+  The screen does not recommend a drug dose.
+
+JUDGING MAP
+
+  Problem fit        Type 2 diabetes, one timed event, common in India.
+  Fusion             Same patient_id on the record and the series.
+                     Show one patient where HbA1c and the recent slope both matter.
+  Prediction         Held-out numbers, lead time, false alarms. Backend.
+  Doctor interface   The three screens. Frontend.
+  Package            Public repo, license, diagram, deck, YouTube link.

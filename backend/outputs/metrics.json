@@ -1,0 +1,59 @@
+{
+  "seed": 2026,
+  "model": "lightgbm",
+  "test_patients": 52,
+  "test_rows": 34112,
+  "test_positive_rate": 0.1195,
+  "auroc": 0.9857,
+  "auprc": 0.9117,
+  "sensitivity_at_80_specificity": 0.9998,
+  "false_alarms_per_patient_day_at_0.60": 0.272,
+  "glucose_now_auroc": 0.7505,
+  "slope_only_auroc": 0.6191,
+  "curve_mae_mg_dl": {
+    "30": 5.46,
+    "60": 5.91,
+    "90": 6.36,
+    "120": 7.55
+  },
+  "same_glucose_band_140_to_160": {
+    "rows": 4005,
+    "spike_rate_hba1c_below_7": 0.0083,
+    "spike_rate_hba1c_7_or_higher": 0.2972
+  },
+  "feature_gain": [
+    {
+      "feature": "glucose_now",
+      "gain": 228290.9
+    },
+    {
+      "feature": "hour",
+      "gain": 180332.3
+    },
+    {
+      "feature": "hba1c",
+      "gain": 127414.6
+    },
+    {
+      "feature": "std_6h",
+      "gain": 61778.4
+    },
+    {
+      "feature": "mean_2h",
+      "gain": 49404.3
+    },
+    {
+      "feature": "slope_30m",
+      "gain": 48711.5
+    },
+    {
+      "feature": "share_above_140_6h",
+      "gain": 25647.6
+    },
+    {
+      "feature": "steps_2h",
+      "gain": 19407.8
+    }
+  ],
+  "synthetic": true
+}

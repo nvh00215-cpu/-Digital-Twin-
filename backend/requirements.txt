@@ -1,0 +1,9 @@
+numpy
+pandas
+lightgbm
+joblib
+fastapi
+uvicorn
+streamlit
+requests
+matplotlib

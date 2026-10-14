@@ -1,0 +1,14 @@
+{
+  "passed": true,
+  "generator_matches_signals_for": [
+    "0149d553-f571-4e99-867e-fcb9625d07c2",
+    "01e1f394-7219-4189-bceb-3cbd90cff90b"
+  ],
+  "labels_recomputed": 1312,
+  "patients_baseline_sha256": "902db55ce1a7d9f3d740eb1c7409ac95f7eaf3375e94eb73007ae6876447e585",
+  "signals_sha256": "be38380fe6f5767dbf80829df05f8a1a92aec3aead1d06b5395a160e8a1df377",
+  "signal_patients": 339,
+  "baseline_patients": 339,
+  "hba1c_mean_glucose_correlation": 0.9978,
+  "sleep_values_per_day": 1
+}

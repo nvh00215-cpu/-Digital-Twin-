@@ -1,0 +1,44 @@
+Training data for GlycoTwin
+Generated from the local Synthea sample. CGMacros was not used.
+
+patients_baseline.csv
+  One row per Synthea patient who has diabetes or prediabetes.
+  Age, sex, BMI, blood pressure, and medicines come from the Synthea CSVs.
+  hba1c_raw is the latest Synthea HbA1c, even when that value is not in a
+  diabetic range. This sample's diabetes labs often sit near 2% to 5%.
+  hba1c is the value used to simulate glucose.
+  hba1c_source is synthea_lab when the lab was already plausible.
+  It is imputed_from_diagnosis when the lab was missing or below 6.5%
+  for a diabetes diagnosis (drawn uniformly from 6.6 to 8.4), or outside
+  5.6 to 6.4 for prediabetes.
+
+signals.csv
+  Simulated 5-minute wearable rows for 14 days, seed 2026.
+  Same patient_id as patients_baseline.csv.
+  Fasting glucose is 28.7 x hba1c - 46.7 - 28 (ADAG average glucose,
+  shifted down so the night sits below the average).
+  Meals at 08:00, 13:30, and 21:00 add a rise. One meal each day is
+  larger, so a prediabetes patient can cross 180 mg/dL after that meal
+  and a diabetes patient does not stay above 180 all day.
+  Steps lower glucose, short sleep raises the morning value, insulin
+  widens the swing, and a small noise term is added.
+  These rows follow that formula. They are not recordings from a watch.
+
+processed/train_rows.csv
+  One row every 30 minutes.
+  Features end at decision_time. The label uses the following 2 hours only.
+  y_glucose_30, y_glucose_60, y_glucose_90, and y_glucose_120 are targets,
+  not features.
+  Split is by patient: 70% train, 15% validation, 15% test, stratified
+  by diabetes and prediabetes. Seed 2026.
+
+Reproducibility
+  py -3 data/generate_signals.py
+  py -3 backend/src/make_dataset.py
+  py -3 backend/src/train_baseline.py
+  py -3 backend/src/validate_data.py
+  validate_data.py resimulates the first two patients and checks every
+  glucose and sleep value against signals.csv. It also recomputes their
+  labels from the raw series. A mismatch exits with status 1.
+  Sleep is constant inside one calendar day because it is last night's
+  total, then it changes at the next midnight.

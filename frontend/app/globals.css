@@ -1,0 +1,72 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg-app: #0a0a0b;
+  --bg-frame: #101011;
+  --bg-surface: #161617;
+  --bg-raised: #1e1e20;
+  --surface-glass-from: #262628;
+  --surface-glass-to: #121213;
+  --border-subtle: rgba(255, 255, 255, 0.06);
+  --border-default: rgba(255, 255, 255, 0.1);
+  --border-strong: rgba(255, 255, 255, 0.18);
+  --text-primary: #f5f5f2;
+  --text-secondary: #a6a6ab;
+  --text-muted: #6e6e74;
+  --text-on-accent: #0a0a0b;
+  --accent: #e7f43c;
+  --accent-hover: #f0fa6a;
+  --accent-pressed: #cfdb2e;
+  --accent-soft: rgba(231, 244, 60, 0.12);
+  --accent-ring: rgba(231, 244, 60, 0.45);
+  --chart-1: #f062c0;
+  --chart-2: #5b6cff;
+  --chart-3: #e7f43c;
+  --chart-grid: rgba(255, 255, 255, 0.14);
+  --chart-axis: #8a8a90;
+  --status-success: #34d27b;
+  --status-warning: #ffb020;
+  --status-danger: #ff4d4f;
+  --status-info: #5b6cff;
+  --shadow-panel: 0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 12px 32px rgba(0, 0, 0, 0.35);
+  --shadow-floating: 0 20px 48px rgba(0, 0, 0, 0.5);
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  min-height: 100%;
+  background: var(--bg-app);
+  color: var(--text-primary);
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+  background-image: radial-gradient(60% 50% at 30% 0%, rgba(231, 244, 60, 0.06), transparent 70%);
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+::selection {
+  background: var(--accent-soft);
+  color: var(--text-primary);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}
