@@ -1,6 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
+import { HeldOutMoments } from "@/components/held-out-moments";
 import { PanelCard } from "@/components/panel-card";
 import { StatTile } from "@/components/stat-tile";
 import { StatusChip } from "@/components/status-chip";
@@ -93,6 +94,7 @@ export function ModelNotes() {
           </div>
         ) : null}
       </PanelCard>
+      <HeldOutMoments />
       <PanelCard title="Limits" className="xl:col-span-2">
         <p className="text-sm leading-relaxed text-secondary">
           High scores describe this formula-generated series. They are not clinical validation. The screen never

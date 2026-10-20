@@ -169,9 +169,10 @@ export async function getJson<T>(path: string, schema: z.ZodType<T>, signal?: Ab
 
 export function predictPath(
   id: string,
-  options?: { sleepHours?: number | null; stepScale?: number | null },
+  options?: { at?: string | null; sleepHours?: number | null; stepScale?: number | null },
 ) {
   const params = new URLSearchParams();
+  if (options?.at) params.set("at", options.at);
   if (options?.sleepHours != null) params.set("sleep_hours", String(options.sleepHours));
   if (options?.stepScale != null && options.stepScale !== 1) {
     params.set("step_scale", String(options.stepScale));
