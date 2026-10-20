@@ -1,33 +1,91 @@
-# GlycoTwin
+# GlycoTwin: Type 2 Diabetes Digital Twin
 
-Doctor-facing digital twin for Type 2 diabetes. It fuses one synthetic patient's clinic record with a 14-day wearable series and estimates whether glucose will reach 180 mg/dL within the next 2 hours.
+Happiest Health Digital Twin Challenge 2026
 
-Demo video: paste a short unlisted YouTube link here.
-
-Team: replace this line with the team leader, members, and college before you submit.
+GlycoTwin is a doctor-facing digital twin for Type 2 diabetes. For one synthetic patient it joins a clinic record to a 14-day wearable trace and estimates whether glucose will reach 180 mg/dL in the next 2 hours.
 
 The patients are synthetic. Held-out scores measure this simulation. They are not a clinical validation. The screen never recommends a drug dose.
 
-## Problem statement
+## 1. Team details
+
+| | |
+|---|---|
+| Team name | Aeternum |
+| Team leader | Naveen V Hiremath |
+| College | Dr Ambedkar Institute Of Technology |
+
+## 2. Project title
+
+GlycoTwin: Type 2 Diabetes Digital Twin
+
+## 3. Problem statement and healthcare use case
 
 Type 2 diabetes is managed mostly between visits. A clinic record (HbA1c, medicines, blood pressure, comorbidities) and a wearable stream (glucose, heart rate, steps, sleep) usually sit in different systems, so a morning review cannot see both at the decision time.
 
-The adverse event is timed and specific: any glucose sample above 180 mg/dL in the next 2 hours. A glucose value alone is a weak call. Two people can sit in the same 140–160 mg/dL band and have very different odds once HbA1c is known. The product need is a doctor view that sorts who to open first, shows the near-term curve, and lets the doctor rescore sleep and steps. It is a review aid for a clinic morning list. It is not a treatment order and not a patient-facing diagnosis.
+The adverse event is timed and specific: any glucose sample above 180 mg/dL in the next 2 hours. A glucose value alone is a weak call. Two people can sit in the same 140–160 mg/dL band and have very different odds once HbA1c is known.
 
-Constraints for this build: open or synthetic data only, no real patient photos, no public health identifiers, and no dose advice.
+**Use case.** A doctor reviews a diabetes panel before clinic. The list sorts who to open first, the twin shows the near-term glucose curve beside the record, and the doctor can rescore sleep and steps. It is a review aid for a clinic morning list. It is not a treatment order and not a patient-facing diagnosis.
 
-## Solution
+**Constraints for this build.** Open or synthetic data only, no real patient photos, no public health identifiers, and no dose advice.
 
-GlycoTwin keeps both streams on one `patient_id`.
+**The key result.** Among 4,005 decision rows already at 140–160 mg/dL, the 2-hour spike rate is 0.8% when HbA1c is under 7% and 29.7% when HbA1c is 7% or higher. Fusing the record with the wearable trace changes the call when the recent glucose looks the same.
 
-1. A static record row holds age, sex, BMI, HbA1c, diabetes duration, blood pressure, hypertension, chronic kidney disease, and whether metformin, a sulfonylurea, or insulin is on the record.
-2. A 5-minute series for 14 days holds glucose, heart rate, steps, and one sleep value per night.
-3. Every 30 minutes the model reads only the past 6 hours plus the record, then returns a 2-hour spike probability, an alert at 60%, and glucose at +30, +60, +90, and +120 minutes.
-4. The doctor signs in, sees the panel sorted by that risk, and opens one twin. Sleep and step sliders call the same model again and show the new numbers on screen. Nothing is written back.
+## 4. Technical stack, AI/ML model and framework details
 
-Same glucose band, different record: among 4,005 decision rows already at 140–160 mg/dL, the 2-hour spike rate is 0.8% when HbA1c is under 7% and 29.7% when HbA1c is 7% or higher. Fusion changes the call when the recent trace looks the same.
+| Layer | Technology |
+|---|---|
+| Record data | Synthea synthetic clinic records (Walonoski et al., JAMIA, 2018) |
+| Wearable data | Seeded formula generator (seed 2026): glucose, heart rate, steps, one sleep value per night, 5-minute series |
+| ML | LightGBM: one classifier for the 2-hour spike and four regressors for the glucose curve |
+| API | FastAPI (Python), read-only, 127.0.0.1:8000 |
+| Doctor UI | Next.js App Router (TypeScript), port 3000, proxies to the API |
+| Access | bcrypt-hashed password in env, httpOnly session cookie, access log |
 
-## Architecture
+### Data
+
+339 synthetic patients with diabetes or prediabetes. The same `patient_id` joins both tables. The record holds age, sex, BMI, HbA1c, diabetes duration, blood pressure, hypertension, chronic kidney disease, and whether metformin, a sulfonylurea, or insulin is on the record. These are not real watches and not lab continuous glucose.
+
+### Model
+
+- Every 30 minutes the model sees only the past 6 hours plus the record. Features end at time `t`. Future glucose is used only as the label and as the four curve targets.
+- **Spike label:** any glucose sample in (t, t+2h] at or above 180 mg/dL. 222,384 decision rows in total.
+- **Alert:** the classifier probability at or above 0.60. The curve does not decide the alert.
+- **Curve:** four LightGBM regressors draw glucose at +30, +60, +90 and +120 minutes.
+- **Features:** current glucose, 30-minute slope, 2-hour mean, 6-hour spread, share of the last 6 hours above 140 mg/dL, hour, steps in 2 hours, sleep last night, 2-hour heart-rate mean and spread, plus the record fields.
+- Top gain features: glucose now, hour, HbA1c, 6-hour spread, 2-hour mean, 30-minute slope, share above 140 mg/dL, steps in 2 hours.
+- Saved in `backend/models/baseline.joblib`.
+
+### Split and results
+
+People are split by person (seed 2026, 70% train / 15% validation / 15% test, stratified by diabetes and prediabetes), so a test patient never appears in training. Test set: 52 patients, 34,112 rows, positive rate 11.95%.
+
+| Score on 52 held-out patients | AUROC |
+|---|---|
+| Record plus wearables (fused) | 0.9857 |
+| Current glucose only | 0.7505 |
+| 30-minute slope only | 0.6191 |
+
+AUPRC 0.9117. False alarms at the 0.60 threshold: 0.272 per patient-day. Curve mean absolute error: 5.46, 5.91, 6.36 and 7.55 mg/dL at +30, +60, +90 and +120 minutes.
+
+**Why the AUROC is high.** The wearable series is generated from a known formula (HbA1c, meals, steps, sleep, insulin, small noise), so the model is recovering that generator. The number is an internal check against two simpler rules on the same rows. It is not evidence that the same score would hold on a Dexcom or Libre export.
+
+### API
+
+`GET /patients`, `GET /patients/{id}`, `GET /patients/{id}/series`, `GET /patients/{id}/predict`, `GET /metrics`, `GET /health`. What-if is a GET with `sleep_hours` and `step_scale`. It does not persist.
+
+### Doctor UI features
+
+1. **Risk-sorted list.** Sorted by 2-hour risk, with All, High, Moderate and Low filters and search by patient id. High matches the 0.60 alert. Moderate is 0.30 to just under 0.60 and Low is under 0.30.
+2. **Record first.** A patient page opens with HbA1c, BMI, blood pressure, diabetes duration and medicines on record, then the glucose chart.
+3. **Same glucose, different record.** Two held-out moments, both at 148.5 mg/dL, sit side by side. HbA1c 6.0% did not reach 180 mg/dL in the next 2 hours. HbA1c 7.8% did. Each card shows the live risk and forecast.
+4. **14-day replay.** A slider moves the decision from 5 January 2026, 06:00 through 18 January 2026, 21:30. The chart, heart rate, steps, alert and forecast follow that time.
+5. **What-if in words.** Sleep and step sliders rescore the same model and state the change in words. Nothing is saved.
+6. **One hit and one miss.** Model notes pin one held-out alert that was right (glucose 176.5 mg/dL, then a real spike) and one that was wrong (glucose 168.2 mg/dL, alert on, no spike in the next 2 hours), each with patient id, time, probability and curve.
+7. **Footer on every signed-in page:** "Synthetic data, not clinically validated."
+
+### Architecture
+
+The architecture diagram is in [`docs/GlycoTwin_Architecture.pdf`](docs/GlycoTwin_Architecture.pdf).
 
 ```text
 Synthea CSVs ---------------------> patients_baseline.csv
@@ -51,18 +109,9 @@ decision rows every 30 min -------> train_rows.csv
                          browser never calls port 8000
 ```
 
-| Layer | Role |
-|---|---|
-| Data | Synthea clinic fields plus a seeded wearable generator. Same patient id on every row. |
-| Features | 6-hour window ending at the decision. The label and the curve targets use later glucose and are never copied into the feature list. |
-| Model | One LightGBM classifier for the spike. Four LightGBM regressors for the curve. Saved in `backend/models/baseline.joblib`. |
-| API | `GET /patients`, `GET /patients/{id}`, `GET /patients/{id}/series`, `GET /patients/{id}/predict`, `GET /metrics`, `GET /health`. What-if is a GET with `sleep_hours` and `step_scale`. It does not persist. |
-| Doctor UI | Next.js App Router. Sign-in, risk-sorted list, one twin, model notes. The browser calls only Next.js. Next.js proxies to the API after a session cookie check. |
-| Access | Doctor login lives in the UI. Passwords are bcrypt hashes in env. Each twin view appends doctor, patient id, and time to `frontend/logs/access.log`. |
-
 ### How to run
 
-From the project folder, the trained bundle is already in the repo. To rebuild from scratch:
+The trained bundle is already in the repo. To rebuild from scratch:
 
 ```powershell
 py -3 -m pip install -r backend/requirements.txt
@@ -93,48 +142,40 @@ Put the printed hash in `frontend/.env.local` as `DOCTOR_PASSWORD_HASH`. Write e
 
 Open http://localhost:3000. `npm run build` then `npm run start` serves the same UI on port 3000.
 
-## AI / Technical implementation
+## 5. Video (20 minutes or longer)
 
-**Cohort.** 339 synthetic patients with diabetes or prediabetes. 222,384 decision rows, one every 30 minutes. Positive label: any glucose sample in the next 2 hours is at least 180 mg/dL. Cohort positive rate is 37.1% in diabetes and 5.6% in prediabetes.
+Demo and explanation video: **ADD YOUR UNLISTED YOUTUBE LINK HERE**
 
-**Split.** By patient, seed 2026, 70% train / 15% validation / 15% test, stratified by diabetes and prediabetes. A person in the test set contributes no training rows. Test set: 52 patients, 34,112 rows, positive rate 11.95%.
+## 6. Open-source license
 
-**Features used at time t.** Current glucose, 30-minute slope, 2-hour mean, 6-hour spread, share of the last 6 hours above 140 mg/dL, hour, steps in 2 hours, sleep last night, 2-hour heart-rate mean and spread, plus the record fields above. Future glucose is used only as the label and as the four curve targets.
+MIT License. See [`LICENSE`](LICENSE). Synthea is used under its own open-source license.
 
-**Model.** Native LightGBM. The alert is the classifier probability at or above 0.60. The curve does not decide the alert. Top gain features: glucose now, hour, HbA1c, 6-hour spread, 2-hour mean, 30-minute slope, share above 140 mg/dL, steps in 2 hours.
+## 7. Architecture diagram
 
-**Held-out comparison.**
+[`docs/GlycoTwin_Architecture.pdf`](docs/GlycoTwin_Architecture.pdf)
 
-| Score | AUROC |
-|---|---|
-| Record plus wearables | 0.9857 |
-| Current glucose only | 0.7505 |
-| 30-minute slope only | 0.6191 |
+## 8. Presentation and outcome
 
-AUPRC 0.9117. Sensitivity at 80% specificity 0.9998. False alarms at the 0.60 threshold: 0.272 per patient-day. Curve mean absolute error: 5.46, 5.91, 6.36, and 7.55 mg/dL at +30, +60, +90, and +120 minutes.
+[`docs/GlycoTwin_SCR_Deck.pptx`](docs/GlycoTwin_SCR_Deck.pptx) covers the situation, the complication and the resolution.
 
-**Why the AUROC is high.** The wearable series is generated from a known formula (HbA1c, meals, steps, sleep, insulin, small noise). The model is recovering that generator. The number is an internal check against two simpler rules on the same rows. It is not evidence that the same score would hold on a Dexcom or Libre export.
+**Outcome.**
 
-**What-if.** `GET /patients/{id}/predict?sleep_hours=&step_scale=` rebuilds the last night and the step scale in memory, then rescores. The UI displays the result. The API does not store it.
+- The fused model scores AUROC 0.986 on 52 held-out patients, against 0.751 for glucose alone and 0.619 for the 30-minute slope alone.
+- In the 140–160 mg/dL band, the 2-hour spike rate is 0.8% when HbA1c is under 7% and 29.7% when it is 7% or higher.
+- The doctor UI shows the risk-sorted list, the record first, two same-glucose moments, a 14-day replay, what-if sliders in words, and one right and one wrong alert.
+- The high score describes a formula-generated series. It is not a clinical validation.
 
-**Doctor UI checks.** Risk list with All / High / Moderate / Low. High matches the 0.60 alert. Moderate is 0.30 to just under 0.60 and Low is under 0.30; those two bands are display groups because the API returns a probability and an alert flag. Search is by patient id. The twin shows the history, the four forecast points, a dashed 180 mg/dL line, heart rate, steps, the record, and the reasons. Sleep hours are not a field on the series payload; the panel says so, and shows hours only when the API includes a short-sleep reason.
+## Innovation and impact
 
-## Innovation and creativity
+**Innovation**
 
 - **One patient, two clocks.** The join is on `patient_id` before any feature is built. A wearable-only or record-only model cannot make the 140–160 mg/dL comparison above.
 - **A timed event, not a disease label.** The label is "glucose crosses 180 mg/dL inside the next 2 hours," computed from samples after the decision and kept out of the inputs.
 - **Baselines on the same split.** Glucose-now and slope-only AUROC sit next to the fused model so the gain from the record is visible.
-- **What-if without a new model.** Sleep and steps go back through the same simulator and the same LightGBM heads. The doctor sees a different risk. The chart does not invent a medicine.
-- **Clinic workflow.** The list is sorted by risk for a morning review. The alert, the curve, and the record are on one page. Sign-out, model notes, and the synthetic-data footer are the only other navigation.
-- **Privacy boundary.** The UI adds doctor login, an httpOnly session, and an access log. The prediction API stays a read-only local service. No real patient record is in the repo.
+- **What-if without a new model.** Sleep and steps go back through the same simulator and the same LightGBM heads. The chart does not invent a medicine.
+- **Privacy boundary.** The UI adds doctor login, an httpOnly session and an access log (`frontend/logs/access.log`). The prediction API stays a read-only local service. No real patient record is in the repo.
 
-## Impact and scalability
-
-**Who it is for.** A doctor reviewing a synthetic diabetes panel before clinic. The list answers "who is closest to a 2-hour spike," and the twin answers "what in the record and the last 6 hours is driving that."
-
-**What changes in the visit.** The doctor opens high-risk rows first, sees HbA1c beside the trace, and can ask what last night's sleep or today's steps would do to the same model. The screen stops there. It does not choose a drug or a dose.
-
-**What would have to be true at a larger scale.**
+**Impact and scale path**
 
 | Today | To serve a real clinic |
 |---|---|
@@ -143,22 +184,17 @@ AUPRC 0.9117. Sensitivity at 80% specificity 0.9998. False alarms at the 0.60 th
 | API bound to 127.0.0.1, model loaded in one process | A private deploy with the series store outside the request path |
 | Scores on 52 held-out synthetic patients | A prospective check on real paired traces before any alert is shown to a patient |
 
-**Ethics.** Training rows are synthetic. The repo has no public health identifiers. Avatars are initials. The footer on every signed-in page reads "Synthetic data, not clinically validated." A high AUROC on this generator is a reason to keep the model in the lab, not a reason to deploy it.
+**Ethics.** Training rows are synthetic and the repo has no public health identifiers. A high AUROC on this generator is a reason to keep the model in the lab, not a reason to deploy it.
 
-**Scale path that stays honest.** The same decision row (record + 6-hour window + 2-hour label) can be retrained when a clinic has consented pairs. The doctor page, the 180 mg/dL line, the 60% alert, and the what-if display do not have to change. The weights do. Until that dataset exists, GlycoTwin is a working prototype of the fusion, the timed prediction, and the morning-review screen.
+## Repository layout
 
-## Submission
-
-Put the public GitHub URL in the required repository field. Leave the live deployment field empty unless a host is actually serving http://localhost:3000. Paste the short demo link under the title if you record one.
-
-## Layout
-
-- `data/synthea/` — Synthea CSV sample (Walonoski et al., JAMIA, 2018)
-- `data/patients_baseline.csv` — one clinical row per diabetes or prediabetes patient
-- `data/signals.csv` — simulated wearables, same patient id
-- `data/processed/train_rows.csv` — model table
-- `backend/models/baseline.joblib` — spike model and four curve models
-- `backend/src/api.py` — read-only API on port 8000
-- `frontend/` — Next.js doctor UI on port 3000
-- `docs/architecture.pdf` and `docs/presentation.pdf`
-- License: MIT (`LICENSE`)
+- `data/synthea/`: Synthea CSV sample
+- `data/patients_baseline.csv`: one clinical row per diabetes or prediabetes patient
+- `data/signals.csv`: simulated wearables, same patient id
+- `data/processed/train_rows.csv`: model table
+- `backend/models/baseline.joblib`: spike model and four curve models
+- `backend/src/api.py`: read-only API on port 8000
+- `frontend/`: Next.js doctor UI on port 3000
+- `docs/GlycoTwin_Architecture.pdf`: architecture diagram
+- `docs/GlycoTwin_SCR_Deck.pptx`: presentation
+- `LICENSE`: MIT
