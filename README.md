@@ -18,6 +18,8 @@ The patients are synthetic. Held-out scores measure this simulation. They are no
 |---|---|
 | Team name | Aeternum |
 | Team leader | Naveen V Hiremath |
+| Phone Number | 7676191308 |
+| Email id | vhnaveen5@gmail.com |
 | College | Dr Ambedkar Institute Of Technology |
 
 ## 2. Project title
