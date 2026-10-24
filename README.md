@@ -1,5 +1,11 @@
 # GlycoTwin: Type 2 Diabetes Digital Twin
 
+Youtube Demo Video : https://youtu.be/R-I0pyNmTA0
+
+Live App : https://digital-twin-roan.vercel.app/
+
+API Link : https://digital-twin-31qd.onrender.com
+
 Happiest Health Digital Twin Challenge 2026
 
 GlycoTwin is a doctor-facing digital twin for Type 2 diabetes. For one synthetic patient it joins a clinic record to a 14-day wearable trace and estimates whether glucose will reach 180 mg/dL in the next 2 hours.
@@ -142,19 +148,16 @@ Put the printed hash in `frontend/.env.local` as `DOCTOR_PASSWORD_HASH`. Write e
 
 Open http://localhost:3000. `npm run build` then `npm run start` serves the same UI on port 3000.
 
-## 5. Video (20 minutes or longer)
 
-Demo and explanation video: **ADD YOUR UNLISTED YOUTUBE LINK HERE**
-
-## 6. Open-source license
+##  Open-source license
 
 MIT License. See [`LICENSE`](LICENSE). Synthea is used under its own open-source license.
 
-## 7. Architecture diagram
+##  Architecture diagram
 
 [`docs/GlycoTwin_Architecture.pdf`](docs/GlycoTwin_Architecture.pdf)
 
-## 8. Presentation and outcome
+##  Presentation and outcome
 
 [`docs/GlycoTwin_SCR_Deck.pptx`](docs/GlycoTwin_SCR_Deck.pptx) covers the situation, the complication and the resolution.
 
