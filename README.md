@@ -91,7 +91,7 @@ AUPRC 0.9117. False alarms at the 0.60 threshold: 0.272 per patient-day. Curve m
 
 ### Architecture
 
-The architecture diagram is in [`docs/GlycoTwin_Architecture.pdf`](docs/GlycoTwin_Architecture.pdf).
+The architecture diagram is in [`GlycoTwin_Architecture.pdf`](GlycoTwin_Architecture.pdf).
 
 ```text
 Synthea CSVs ---------------------> patients_baseline.csv
@@ -155,11 +155,11 @@ MIT License. See [`LICENSE`](LICENSE). Synthea is used under its own open-source
 
 ##  Architecture diagram
 
-[`docs/GlycoTwin_Architecture.pdf`](docs/GlycoTwin_Architecture.pdf)
+[`GlycoTwin_Architecture.pdf`](GlycoTwin_Architecture.pdf)
 
 ##  Presentation and outcome
 
-[`docs/GlycoTwin_SCR_Deck.pptx`](docs/GlycoTwin_SCR_Deck.pptx) covers the situation, the complication and the resolution.
+[`GlycoTwin_ppt.pptx`](GlycoTwin_ppt.pptx) covers the situation, the complication and the resolution.
 
 **Outcome.**
 
@@ -189,6 +189,12 @@ MIT License. See [`LICENSE`](LICENSE). Synthea is used under its own open-source
 
 **Ethics.** Training rows are synthetic and the repo has no public health identifiers. A high AUROC on this generator is a reason to keep the model in the lab, not a reason to deploy it.
 
+Login Credentials
+
+Username : doctor
+
+Password : VXpEhqS4gz6iOCoZPc
+
 ## Repository layout
 
 - `data/synthea/`: Synthea CSV sample
@@ -198,6 +204,6 @@ MIT License. See [`LICENSE`](LICENSE). Synthea is used under its own open-source
 - `backend/models/baseline.joblib`: spike model and four curve models
 - `backend/src/api.py`: read-only API on port 8000
 - `frontend/`: Next.js doctor UI on port 3000
-- `docs/GlycoTwin_Architecture.pdf`: architecture diagram
-- `docs/GlycoTwin_SCR_Deck.pptx`: presentation
+- `GlycoTwin_Architecture.pdf`: architecture diagram
+- `GlycoTwin_ppt.pptx`: presentation
 - `LICENSE`: MIT
